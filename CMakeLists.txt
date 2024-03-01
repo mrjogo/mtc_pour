@@ -29,17 +29,17 @@ target_include_directories(mtc_pour_into PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>/${PROJECT_NAME})
 
-# add_executable(${PROJECT_NAME}_tams_ur5_demo src/mtc_pour_tams_ur5_demo.cpp)
-# ament_target_dependencies(${PROJECT_NAME}_tams_ur5_demo ${THIS_PACKAGE_INCLUDE_DEPENDS})
-# target_link_libraries(${PROJECT_NAME}_tams_ur5_demo
-# 	mtc_pour_into
-# )
+add_executable(${PROJECT_NAME}_tams_ur5_demo src/mtc_pour_tams_ur5_demo.cpp)
+ament_target_dependencies(${PROJECT_NAME}_tams_ur5_demo ${THIS_PACKAGE_INCLUDE_DEPENDS})
+target_link_libraries(${PROJECT_NAME}_tams_ur5_demo
+	mtc_pour_into
+)
 
-# add_executable(${PROJECT_NAME}_baxter_demo src/mtc_pour_baxter_demo.cpp)
-# ament_target_dependencies(${PROJECT_NAME}_baxter_demo ${THIS_PACKAGE_INCLUDE_DEPENDS})
-# target_link_libraries(${PROJECT_NAME}_baxter_demo
-# 	mtc_pour_into
-# )
+add_executable(${PROJECT_NAME}_baxter_demo src/mtc_pour_baxter_demo.cpp)
+ament_target_dependencies(${PROJECT_NAME}_baxter_demo ${THIS_PACKAGE_INCLUDE_DEPENDS})
+target_link_libraries(${PROJECT_NAME}_baxter_demo
+	mtc_pour_into
+)
 
 install(TARGETS mtc_pour_into
   EXPORT export_${PROJECT_NAME}
@@ -48,9 +48,9 @@ install(TARGETS mtc_pour_into
   RUNTIME DESTINATION bin
 )
 
-# install(TARGETS ${PROJECT_NAME}_tams_ur5_demo ${PROJECT_NAME}_baxter_demo
-#   DESTINATION lib/${PROJECT_NAME}
-# )
+install(TARGETS ${PROJECT_NAME}_tams_ur5_demo ${PROJECT_NAME}_baxter_demo
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 install(DIRECTORY include/
   DESTINATION include/${PROJECT_NAME}

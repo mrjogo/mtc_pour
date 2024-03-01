@@ -1,38 +1,35 @@
 #pragma once
 
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 
-#include <moveit_task_constructor_msgs/Solution.h>
+#include <moveit_task_constructor_msgs/msg/solution.hpp>
 
 #include <geometric_shapes/mesh_operations.h>
 #include <geometric_shapes/shape_extents.h>
 #include <geometric_shapes/shape_operations.h>
 
-#include <shape_msgs/Mesh.h>
+#include <shape_msgs/msg/mesh.hpp>
 
-#include <actionlib/client/simple_action_client.h>
-#include <moveit_task_constructor_msgs/ExecuteTaskSolutionAction.h>
+#include <rclcpp_action/rclcpp_action.hpp>
+#include <moveit_task_constructor_msgs/action/execute_task_solution.hpp>
 
 namespace mtc_pour {
 
-void executeSolution(const moveit_task_constructor_msgs::Solution &msg) {
-  actionlib::SimpleActionClient<
-      moveit_task_constructor_msgs::ExecuteTaskSolutionAction>
-      ac("execute_task_solution", true);
-  ac.waitForServer();
+void executeSolution(const moveit_task_constructor_msgs::msg::Solution &msg, rclcpp::Node::SharedPtr& node) {
+  auto ac = rclcpp_action::create_client<moveit_task_constructor_msgs::action::ExecuteTaskSolution>(node, "execute_task_solution");
 
-  moveit_task_constructor_msgs::ExecuteTaskSolutionGoal goal;
+  moveit_task_constructor_msgs::action::ExecuteTaskSolution::Goal goal;
   goal.solution = msg;
-  ac.sendGoal(goal);
+   auto goal_handle_future = ac->async_send_goal(goal);
 
-  ac.waitForResult();
-  ROS_INFO_STREAM("action returned: " << ac.getState().toString());
+  auto result_future = ac->async_get_result(goal_handle_future.get());
+  RCLCPP_INFO_STREAM(node->get_logger(), "action returned: " << static_cast<int8_t>(result_future.get().code));
 }
 
-void collisionObjectFromResource(moveit_msgs::CollisionObject &msg,
+void collisionObjectFromResource(moveit_msgs::msg::CollisionObject &msg,
                                  const std::string &id,
                                  const std::string &resource) {
   msg.meshes.resize(1);
@@ -42,7 +39,7 @@ void collisionObjectFromResource(moveit_msgs::CollisionObject &msg,
   shapes::Shape *shape = shapes::createMeshFromResource(resource, scaling);
   shapes::ShapeMsg shape_msg;
   shapes::constructMsgFromShape(shape, shape_msg);
-  msg.meshes[0] = boost::get<shape_msgs::Mesh>(shape_msg);
+  msg.meshes[0] = boost::get<shape_msgs::msg::Mesh>(shape_msg);
 
   // set pose
   msg.mesh_poses.resize(1);
@@ -50,10 +47,10 @@ void collisionObjectFromResource(moveit_msgs::CollisionObject &msg,
 
   // fill in details for MoveIt
   msg.id = id;
-  msg.operation = moveit_msgs::CollisionObject::ADD;
+  msg.operation = moveit_msgs::msg::CollisionObject::ADD;
 }
 
-double computeMeshHeight(const shape_msgs::Mesh &mesh) {
+double computeMeshHeight(const shape_msgs::msg::Mesh &mesh) {
   double x, y, z;
   geometric_shapes::getShapeExtents(mesh, x, y, z);
   return z;
@@ -63,11 +60,11 @@ void cleanup() {
   moveit::planning_interface::PlanningSceneInterface psi;
 
   {
-    std::map<std::string, moveit_msgs::AttachedCollisionObject>
+    std::map<std::string, moveit_msgs::msg::AttachedCollisionObject>
         attached_objects = psi.getAttachedObjects({"bottle"});
     if (attached_objects.count("bottle") > 0) {
       attached_objects["bottle"].object.operation =
-          moveit_msgs::CollisionObject::REMOVE;
+          moveit_msgs::msg::CollisionObject::REMOVE;
       psi.applyAttachedCollisionObject(attached_objects["bottle"]);
     }
   }
@@ -75,13 +72,13 @@ void cleanup() {
   {
     std::vector<std::string> names = psi.getKnownObjectNames();
 
-    std::vector<moveit_msgs::CollisionObject> objs;
+    std::vector<moveit_msgs::msg::CollisionObject> objs;
     for (std::string &obj :
          std::vector<std::string>{"table", "glass", "bottle"}) {
       if (std::find(names.begin(), names.end(), obj) != names.end()) {
         objs.emplace_back();
         objs.back().id = obj;
-        objs.back().operation = moveit_msgs::CollisionObject::REMOVE;
+        objs.back().operation = moveit_msgs::msg::CollisionObject::REMOVE;
       }
     }
 
@@ -89,34 +86,34 @@ void cleanup() {
   }
 }
 
-void setupTable(std::vector<moveit_msgs::CollisionObject> &objects,
-                const geometry_msgs::PoseStamped &tabletop_pose) {
+void setupTable(std::vector<moveit_msgs::msg::CollisionObject> &objects,
+                const geometry_msgs::msg::PoseStamped &tabletop_pose) {
   // add table
-  moveit_msgs::CollisionObject table;
+  moveit_msgs::msg::CollisionObject table;
   table.id = "table";
   table.header = tabletop_pose.header;
-  table.operation = moveit_msgs::CollisionObject::ADD;
+  table.operation = moveit_msgs::msg::CollisionObject::ADD;
 
   table.primitives.resize(1);
-  table.primitives[0].type = shape_msgs::SolidPrimitive::BOX;
+  table.primitives[0].type = shape_msgs::msg::SolidPrimitive::BOX;
   table.primitives[0].dimensions.resize(3);
-  table.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_X] = .5;
-  table.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Y] = 1.0;
-  table.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z] = .1;
+  table.primitives[0].dimensions[shape_msgs::msg::SolidPrimitive::BOX_X] = .5;
+  table.primitives[0].dimensions[shape_msgs::msg::SolidPrimitive::BOX_Y] = 1.0;
+  table.primitives[0].dimensions[shape_msgs::msg::SolidPrimitive::BOX_Z] = .1;
 
   table.primitive_poses.resize(1);
   table.primitive_poses[0] = tabletop_pose.pose;
   table.primitive_poses[0].orientation.w = 1;
   table.primitive_poses[0].position.z -=
-      (table.primitives[0].dimensions[shape_msgs::SolidPrimitive::BOX_Z] / 2);
+      (table.primitives[0].dimensions[shape_msgs::msg::SolidPrimitive::BOX_Z] / 2);
 
   objects.push_back(std::move(table));
 }
 
 void setupObjects(
-    std::vector<moveit_msgs::CollisionObject> &objects,
-    const geometry_msgs::PoseStamped &bottle_pose,
-    const geometry_msgs::PoseStamped &glass_pose,
+    std::vector<moveit_msgs::msg::CollisionObject> &objects,
+    const geometry_msgs::msg::PoseStamped &bottle_pose,
+    const geometry_msgs::msg::PoseStamped &glass_pose,
     const std::string &bottle_mesh = "package://mtc_pour/meshes/bottle.stl",
     const std::string &glass_mesh = "package://mtc_pour/meshes/glass.stl") {
 

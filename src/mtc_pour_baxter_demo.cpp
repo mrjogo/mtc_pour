@@ -1,6 +1,4 @@
-#include <ros/ros.h>
-
-#include <moveit/robot_model/robot_model.h> // TODO shouldn't be necessary...
+#include <rclcpp/rclcpp.hpp>
 
 #include <moveit/task_constructor/task.h>
 
@@ -25,22 +23,29 @@
 using namespace moveit::task_constructor;
 
 int main(int argc, char **argv) {
-  ros::init(argc, argv, "mtc_pouring");
+  rclcpp::init(argc, argv);
 
-  ros::AsyncSpinner spinner(2);
-  spinner.start();
+  rclcpp::Node::SharedPtr node = rclcpp::Node::make_shared("mtc_pouring");
+  bool execute = node->declare_parameter("execute", false);
+
+  rclcpp::executors::MultiThreadedExecutor executor;
+  auto spin_thread = std::make_unique<std::thread>([&executor, &node]() {
+    executor.add_node(node);
+    executor.spin();
+    executor.remove_node(node);
+  });
 
   {
     const double table_height = -.15;
 
-    geometry_msgs::PoseStamped bottle;
+    geometry_msgs::msg::PoseStamped bottle;
     bottle.header.frame_id = "torso";
     bottle.pose.position.x = 0.7;
     bottle.pose.position.y = -0.12;
     bottle.pose.position.z = table_height;
     bottle.pose.orientation.w = 1.0;
 
-    geometry_msgs::PoseStamped glass;
+    geometry_msgs::msg::PoseStamped glass;
     glass.header.frame_id = "torso";
     glass.pose.position.x = 0.65;
     glass.pose.position.y = -0.30;
@@ -48,11 +53,11 @@ int main(int argc, char **argv) {
     glass.pose.orientation.w = 1.0;
 
     // center of table surface can be the glass pose
-    geometry_msgs::PoseStamped tabletop = glass;
+    geometry_msgs::msg::PoseStamped tabletop = glass;
 
     mtc_pour::cleanup();
     moveit::planning_interface::PlanningSceneInterface psi;
-    std::vector<moveit_msgs::CollisionObject> objs;
+    std::vector<moveit_msgs::msg::CollisionObject> objs;
     mtc_pour::setupTable(objs, tabletop);
     mtc_pour::setupObjects(objs, bottle, glass,
                            "package://mtc_pour/meshes/small_bottle.stl");
@@ -61,22 +66,22 @@ int main(int argc, char **argv) {
 
   // TODO: why does a restart trigger a new panel entry
   Task t;
-  t.loadRobotModel();
+  t.loadRobotModel(node);
 
   // TODO: id of solution in rviz panel is sometimes 0 and then changes
 
-  auto sampling_planner = std::make_shared<solvers::PipelinePlanner>();
+  auto sampling_planner = std::make_shared<solvers::PipelinePlanner>(node);
   sampling_planner->setProperty("goal_joint_tolerance", 1e-5);
   // TODO: ignored because it is always overruled by Connect's timeout property
   // sampling_planner->setTimeout(15.0);
   // pipeline->setPlannerId("");
 
   // don't spill liquid
-  moveit_msgs::Constraints upright_constraint;
+  moveit_msgs::msg::Constraints upright_constraint;
   upright_constraint.name = "right_gripper:upright";
   upright_constraint.orientation_constraints.resize(1);
   {
-    moveit_msgs::OrientationConstraint &c =
+    moveit_msgs::msg::OrientationConstraint &c =
         upright_constraint.orientation_constraints[0];
     c.link_name = "right_gripper";
     c.header.frame_id = "torso";
@@ -131,7 +136,7 @@ int main(int argc, char **argv) {
     stage->properties().configureInitFrom(Stage::PARENT, {"group"});
     stage->setMinMaxDistance(.10, .20);
 
-    geometry_msgs::Vector3Stamped vec;
+    geometry_msgs::msg::Vector3Stamped vec;
     vec.header.frame_id = "right_gripper";
     // vec.vector.x = -1.0;
     vec.vector.z = 1.0;
@@ -204,7 +209,7 @@ int main(int argc, char **argv) {
 
     stage->properties().set("marker_ns", "lift");
 
-    geometry_msgs::Vector3Stamped vec;
+    geometry_msgs::msg::Vector3Stamped vec;
     vec.header.frame_id = "world";
     vec.vector.z = 1.0;
     stage->setDirection(vec);
@@ -224,7 +229,7 @@ int main(int argc, char **argv) {
 
   {
     auto stage = std::make_unique<stages::GeneratePose>("pose above glass");
-    geometry_msgs::PoseStamped p;
+    geometry_msgs::msg::PoseStamped p;
     p.header.frame_id = "glass";
     p.pose.orientation.x = 0.707;
     p.pose.orientation.z = 0.707;
@@ -254,9 +259,9 @@ int main(int argc, char **argv) {
     stage->setContainer("glass");
     stage->setPourOffset(Eigen::Vector3d(0, 0.015, 0.035));
     stage->setTiltAngle(2.0);
-    stage->setPourDuration(ros::Duration(2.0));
+    stage->setPourDuration(rclcpp::Duration::from_seconds(4.0));
     {
-      geometry_msgs::Vector3Stamped pouring_axis;
+      geometry_msgs::msg::Vector3Stamped pouring_axis;
       pouring_axis.header.frame_id = "base";
       pouring_axis.vector.x = 1.0;
       stage->setPouringAxis(pouring_axis);
@@ -287,7 +292,7 @@ int main(int argc, char **argv) {
     stage->properties().configureInitFrom(Stage::PARENT, {"group"});
     stage->setMinMaxDistance(.08, .13);
 
-    geometry_msgs::Vector3Stamped vec;
+    geometry_msgs::msg::Vector3Stamped vec;
     vec.header.frame_id = "torso";
     vec.vector.z = -1.0;
     stage->setDirection(vec);
@@ -296,7 +301,7 @@ int main(int argc, char **argv) {
 
   {
     auto stage = std::make_unique<stages::GeneratePose>("place pose");
-    geometry_msgs::PoseStamped p;
+    geometry_msgs::msg::PoseStamped p;
     p.header.frame_id = "table";
     p.pose.position.x = 0.1;
     p.pose.position.y = 0.3;
@@ -356,7 +361,7 @@ int main(int argc, char **argv) {
 
     stage->properties().set("marker_ns", "post-place");
 
-    geometry_msgs::Vector3Stamped vec;
+    geometry_msgs::msg::Vector3Stamped vec;
     vec.header.frame_id = "right_gripper";
     vec.vector.x = 1.0;
     vec.vector.z = -0.75;
@@ -374,15 +379,11 @@ int main(int argc, char **argv) {
 
   t.enableIntrospection();
 
-  ros::NodeHandle nh("~");
-
-  bool execute = nh.param<bool>("execute", false);
-
   if (execute) {
-    ROS_INFO("Going to execute first computed solution");
+    RCLCPP_INFO(node->get_logger(), "Going to execute first computed solution");
   }
 
-  ROS_INFO_STREAM(t);
+  RCLCPP_INFO_STREAM(node->get_logger(), t);
 
   // TODO: try { t.validate(); } catch() {}
 
@@ -391,16 +392,16 @@ int main(int argc, char **argv) {
     // This facilitates debugging
     t.plan(1);
   } catch (InitStageException &e) {
-    ROS_ERROR_STREAM(e);
+    RCLCPP_ERROR_STREAM(node->get_logger(), e);
   }
 
   if (!execute || t.numSolutions() == 0) {
     std::cout << "waiting for <enter>" << std::endl;
     std::cin.get();
   } else {
-    moveit_task_constructor_msgs::Solution solution;
+    moveit_task_constructor_msgs::msg::Solution solution;
     t.solutions().front()->toMsg(solution);
-    mtc_pour::executeSolution(solution);
+    mtc_pour::executeSolution(solution, node);
   }
 
   return 0;
