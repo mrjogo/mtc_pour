@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- generate_state_database.launch has not been ported to ROS2, rendering this file useless -->
+  <!-- <include file="$(find-pkg-share moveit_planners_ompl)/ompl_interface/launch/generate_state_database.launch">
+    <arg name="planning_group" value="arm"/>
+    <arg name="constraints_file" value="$(find-pkg-share mtc_pour)/config/upright_constraint.yaml"/>
+  </include> -->
+</launch>

@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<launch>
+  <include file="$(find-pkg-share tams_ur5_bringup)/launch/tams_ur5_drivers.launch">
+    <arg name="gripper_mode" value="wide_pinch" />
+  </include>
+
+  <!-- This argument enables using a customized configuration of the ur5 joint ranges.
+       Example configuration files can be found inside tams_ur5_description under config/joint_ranges/. -->
+  <arg name="ur5_joint_ranges_config" default="$(find-pkg-share tams_ur5_description)/config/joint_ranges/elbow_up.yaml"/>
+  <include file="$(find-pkg-share tams_ur5_setup_description)/launch/tams_ur5_setup_upload.launch">
+    <arg name="joint_ranges_config" value="$(var ur5_joint_ranges_config)"/>
+  </include>
+
+  <include file="$(find-pkg-share tams_ur5_setup_moveit_config)/launch/move_group.launch"/>
+  <!-- TODO needs to be part of a node in ROS2 -->
+  <!-- <param name="move_group/constraint_approximations_path" value="$(find-pkg-share mtc_pour)/cadb"/> -->
+</launch>

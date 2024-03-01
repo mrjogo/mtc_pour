@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+<include file="$(find-pkg-share tams_ur5_setup_moveit_config)/launch/demo.launch">
+	<arg name="ur5_joint_ranges_config" value="$(find-pkg-share tams_ur5_description)/config/joint_ranges/elbow_up.yaml"/>
+</include>
+<!-- TODO needs to be part of a node in ROS2 -->
+<!-- <param name="move_group/constraint_approximations_path" value="$(find-pkg-share mtc_pour)/cadb"/> -->
+</launch>
