@@ -36,6 +36,7 @@
    Desc:    Pour from attached bottle into(onto) an object
 */
 
+#include <rclcpp/rclcpp.hpp>
 #include <moveit/task_constructor/stages/pour_into.h>
 #include <moveit/task_constructor/moveit_compat.h>
 
@@ -46,13 +47,11 @@
 #include <moveit/trajectory_processing/iterative_spline_parameterization.h>
 #include <moveit/trajectory_processing/iterative_time_parameterization.h>
 
-#include <eigen_conversions/eigen_msg.h>
-
 #include <geometric_shapes/shape_extents.h>
 
-#include <shape_msgs/SolidPrimitive.h>
+#include <shape_msgs/msg/solid_primitive.hpp>
 
-#include <tf2_eigen/tf2_eigen.h>
+#include <tf2_eigen/tf2_eigen.hpp>
 
 #include <rviz_marker_tools/marker_creation.h>
 
@@ -97,17 +96,17 @@ void computePouringWaypoints(const Eigen::Isometry3d &start_tip_pose,
 }
 
 // check the CollisionObject types this stage can handle
-inline bool isValidObject(const moveit_msgs::CollisionObject &o) {
+inline bool isValidObject(const moveit_msgs::msg::CollisionObject &o) {
   return (o.meshes.size() == 1 && o.mesh_poses.size() == 1 &&
           o.primitives.empty()) ||
          (o.meshes.empty() && o.primitives.size() == 1 &&
           o.primitive_poses.size() == 1 &&
-          o.primitives[0].type == shape_msgs::SolidPrimitive::CYLINDER);
+          o.primitives[0].type == shape_msgs::msg::SolidPrimitive::CYLINDER);
 }
 
 /* compute height of the CollisionObject
    This is only useful for meshes, when they are centered */
-inline double getObjectHeight(const moveit_msgs::CollisionObject &o) {
+inline double getObjectHeight(const moveit_msgs::msg::CollisionObject &o) {
   if (!o.meshes.empty()) {
     double x, y, z;
     geometric_shapes::getShapeExtents(o.meshes[0], x, y, z);
@@ -115,13 +114,15 @@ inline double getObjectHeight(const moveit_msgs::CollisionObject &o) {
   } else {
     // validations guarantees this is a cylinder
     return o.primitives[0]
-        .dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT];
+        .dimensions[shape_msgs::msg::SolidPrimitive::CYLINDER_HEIGHT];
   }
 }
 
 } /* anonymous namespace */
 
 namespace mtc_pour {
+
+static const rclcpp::Logger LOGGER = rclcpp::get_logger("PourInto");
 
 PourInto::PourInto(std::string name) : PropagatingForward(std::move(name)) {
   auto &p = properties();
@@ -139,9 +140,9 @@ PourInto::PourInto(std::string name) : PropagatingForward(std::move(name)) {
   p.declare<Eigen::Vector3d>(
       "pour_offset",
       "offset for the bottle tip w.r.t. container top-center during pouring");
-  p.declare<geometry_msgs::Vector3Stamped>("pouring_axis",
+  p.declare<geometry_msgs::msg::Vector3Stamped>("pouring_axis",
                                            "Axis around which to pour");
-  p.declare<ros::Duration>("pour_duration", ros::Duration(1.0),
+  p.declare<rclcpp::Duration>("pour_duration", rclcpp::Duration::from_seconds(1.0),
                            "duration to stay in pouring pose");
 }
 
@@ -169,7 +170,7 @@ void PourInto::computeInternal(const InterfaceState &input,
 
   const auto &min_path_fraction = props.get<double>("min_path_fraction");
 
-  const ros::Duration pour_duration(props.get<ros::Duration>("pour_duration"));
+  const rclcpp::Duration pour_duration(props.get<rclcpp::Duration>("pour_duration"));
 
   const planning_scene::PlanningScene &scene = *input.scene();
   moveit::core::RobotModelConstPtr robot_model = scene.getRobotModel();
@@ -177,7 +178,7 @@ void PourInto::computeInternal(const InterfaceState &input,
       robot_model->getJointModelGroup(props.get<std::string>("group"));
 
   /* validate planning environment is prepared for pouring */
-  moveit_msgs::CollisionObject container;
+  moveit_msgs::msg::CollisionObject container;
   if (!scene.getCollisionObjectMsg(container, container_name))
     throw std::runtime_error("container object '" + container_name +
                              "' is not specified in input planning scene");
@@ -185,7 +186,7 @@ void PourInto::computeInternal(const InterfaceState &input,
     throw std::runtime_error(
         "PourInto: container is neither a valid cylinder nor mesh.");
 
-  moveit_msgs::AttachedCollisionObject bottle;
+  moveit_msgs::msg::AttachedCollisionObject bottle;
   if (!scene.getAttachedCollisionObjectMsg(bottle, bottle_name))
     throw std::runtime_error(
         "bottle '" + bottle_name +
@@ -208,7 +209,7 @@ void PourInto::computeInternal(const InterfaceState &input,
   /* compute pouring axis as one angle (tilt_axis_angle) in x-y plane */
   //// TODO: spawn many axis if this is not set
   const auto &pouring_axis =
-      props.get<geometry_msgs::Vector3Stamped>("pouring_axis");
+      props.get<geometry_msgs::msg::Vector3Stamped>("pouring_axis");
   Eigen::Vector3d tilt_axis;
   tf2::fromMsg(pouring_axis.vector, tilt_axis);
   tilt_axis = container_frame.inverse() *
@@ -258,13 +259,13 @@ void PourInto::computeInternal(const InterfaceState &input,
     waypoint = container_frame * waypoint;
 
   for (auto waypoint : waypoints) {
-    geometry_msgs::PoseStamped p;
+    geometry_msgs::msg::PoseStamped p;
     p.header.frame_id = scene.getPlanningFrame();
     p.pose = tf2::toMsg(waypoint);
 
     rviz_marker_tools::appendFrame(trajectory.markers(), p, 0.1, markerNS());
 
-    // visualization_msgs::Marker tip;
+    // visualization_msgs::msg::Marker tip;
     // tip.ns= markerNS();
     // tip.header= p.header;
     // tip.pose= rviz_marker_tools::composePoses(p.pose,
@@ -312,7 +313,7 @@ void PourInto::computeInternal(const InterfaceState &input,
 
   for (auto waypoint = traj.rbegin(); waypoint != traj.rend(); waypoint++) {
     back_trajectory.addSuffixWayPoint(
-        std::make_shared<robot_state::RobotState>(**waypoint), 0.0);
+        std::make_shared<moveit::core::RobotState>(**waypoint), 0.0);
   }
 
   /* generate time parameterization */
@@ -325,7 +326,7 @@ void PourInto::computeInternal(const InterfaceState &input,
                         acceleration_scaling);
 
   /* combine downward and upward motion / sleep pour_duration seconds between */
-  robot_trajectory->append(back_trajectory, pour_duration.toSec());
+  robot_trajectory->append(back_trajectory, pour_duration.seconds());
 
   trajectory.setTrajectory(robot_trajectory);
 
@@ -333,7 +334,7 @@ void PourInto::computeInternal(const InterfaceState &input,
   result->setCurrentState(robot_trajectory->getLastWayPoint());
 
   if (path_fraction < min_path_fraction) {
-    ROS_WARN_STREAM("PourInto only produced motion for "
+    RCLCPP_WARN_STREAM(LOGGER, "PourInto only produced motion for "
                     << path_fraction << " of the way. Rendering invalid");
     trajectory.setCost(std::numeric_limits<double>::infinity());
     trajectory.setComment("pouring axis angle " +

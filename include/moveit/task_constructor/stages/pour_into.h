@@ -38,13 +38,14 @@
 
 #pragma once
 
+#include <rclcpp/rclcpp.hpp>
 #include <moveit/task_constructor/stage.h>
 
 // TODO make use of this?
 //#include <moveit/task_constructor/solvers/planner_interface.h>
 
-#include <geometry_msgs/TwistStamped.h>
-#include <geometry_msgs/Vector3Stamped.h>
+#include <geometry_msgs/msg/twist_stamped.hpp>
+#include <geometry_msgs/msg/vector3_stamped.hpp>
 
 #include <Eigen/Dense>
 
@@ -79,13 +80,13 @@ public:
     setProperty("tilt_angle", tilt_angle);
   }
 
-  void setPouringAxis(geometry_msgs::Vector3Stamped axis) {
+  void setPouringAxis(geometry_msgs::msg::Vector3Stamped axis) {
     setProperty("pouring_axis", std::move(axis));
   }
 
-  void setPourDuration(ros::Duration d) { setProperty("pour_duration", d); }
+  void setPourDuration(rclcpp::Duration d) { setProperty("pour_duration", d); }
 
-  void setWaypointDuration(ros::Duration d) {
+  void setWaypointDuration(rclcpp::Duration d) {
     setProperty("waypoint_duration", d);
   }
 
