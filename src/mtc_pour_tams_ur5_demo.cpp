@@ -379,10 +379,8 @@ int main(int argc, char **argv) {
     std::cout << "waiting for <enter>" << std::endl;
     std::cin.get();
   } else {
-    moveit_task_constructor_msgs::msg::Solution solution;
-    t.solutions().front()->toMsg(solution);
     std::cout << "executing solution" << std::endl;
-    mtc_pour::executeSolution(solution, node);
+    t.execute(*t.solutions().front());
     std::cout << "done" << std::endl;
   }
 

@@ -23,7 +23,7 @@ include_directories(
   include
 )
 
-add_library(mtc_pour_into src/pour_into.cpp)
+add_library(mtc_pour_into SHARED src/pour_into.cpp)
 ament_target_dependencies(mtc_pour_into ${THIS_PACKAGE_INCLUDE_DEPENDS})
 target_include_directories(mtc_pour_into PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -47,6 +47,8 @@ install(TARGETS mtc_pour_into
   ARCHIVE DESTINATION lib
   RUNTIME DESTINATION bin
 )
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
+ament_export_dependencies(${THIS_PACKAGE_INCLUDE_DEPENDS})
 
 install(TARGETS ${PROJECT_NAME}_tams_ur5_demo ${PROJECT_NAME}_baxter_demo
   DESTINATION lib/${PROJECT_NAME}

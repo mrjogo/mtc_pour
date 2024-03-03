@@ -18,17 +18,6 @@
 
 namespace mtc_pour {
 
-void executeSolution(const moveit_task_constructor_msgs::msg::Solution &msg, rclcpp::Node::SharedPtr& node) {
-  auto ac = rclcpp_action::create_client<moveit_task_constructor_msgs::action::ExecuteTaskSolution>(node, "execute_task_solution");
-
-  moveit_task_constructor_msgs::action::ExecuteTaskSolution::Goal goal;
-  goal.solution = msg;
-   auto goal_handle_future = ac->async_send_goal(goal);
-
-  auto result_future = ac->async_get_result(goal_handle_future.get());
-  RCLCPP_INFO_STREAM(node->get_logger(), "action returned: " << static_cast<int8_t>(result_future.get().code));
-}
-
 void collisionObjectFromResource(moveit_msgs::msg::CollisionObject &msg,
                                  const std::string &id,
                                  const std::string &resource) {
